@@ -1,3 +1,5 @@
+use std::collections::VecDeque;
+
 use futures::future::join_all;
 
 const THRESHOLD: usize = 10;
@@ -18,12 +20,12 @@ pub async fn parallel_map<T, U, F>(mut array: Vec<T>, func: F) -> Vec<U>
 where
     U: Clone,
     F: Fn(T) -> U {
-    let mut futures_vec = Vec::with_capacity(array.len());
+    let mut futures_vec = VecDeque::with_capacity(array.len());
     
-    futures_vec.push(map_chunk(array.split_off(array.len() % THRESHOLD), &func));
-    while array.len() > 0 {
-        futures_vec.push(map_chunk(array.split_off(THRESHOLD), &func));
+    while array.len() >= THRESHOLD {
+        futures_vec.push_front(map_chunk(array.split_off(array.len() - THRESHOLD), &func));
     }
+    futures_vec.push_front(map_chunk(array, &func));
 
     join_all(futures_vec).await.concat()
 }
@@ -31,9 +33,11 @@ where
 
 #[cfg(test)]
 mod tests {
+    use crate::THRESHOLD;
+
     use super::parallel_map;
 
-    const RANDOM_VECTOR_LEN: usize = 10_000;
+    const RANDOM_VECTOR_LEN: usize = 10_006;
 
     fn generate_vector(len: usize, seed: u64) -> Vec<i32> {
         use rand::prelude::*;
@@ -107,6 +111,24 @@ mod tests {
         let func = |_x: i32| panic!();
         
         parallel_map(vec.clone(), func).await;
+    }
+
+    #[tokio::test]
+    async fn test_not_divisible_len() {
+        let vec: Vec<usize> = (0..THRESHOLD + 1).into_iter().collect();
+        
+        let func = |x| x + 42;
+
+        parallel_map(vec.clone(), func).await;
+    }
+
+    #[tokio::test]
+    async fn test_divisible_len() {
+        let vec: Vec<usize> = (0..2 * THRESHOLD).into_iter().collect();
+
+        let func = |x| x + 42;
+
+        parallel_map(vec, func).await;
     }
 
     #[tokio::test]
