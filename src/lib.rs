@@ -33,7 +33,7 @@ where
 mod tests {
     use super::parallel_map;
 
-    const RANDOM_VECTOR_LEN: usize = 30;
+    const RANDOM_VECTOR_LEN: usize = 10_000;
 
     fn generate_vector(len: usize, seed: u64) -> Vec<i32> {
         use rand::prelude::*;
@@ -46,7 +46,7 @@ mod tests {
             result.push(generator.gen::<i32>());
         }
 
-        (0 as i32..len as i32).into_iter().collect()
+        result
     }
 
     async fn same_length(vec: Vec<i32>) {
